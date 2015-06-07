@@ -271,7 +271,6 @@ def has_bad_sql(args):
 				return True
 	return False
 		
-
 #============================================ 其他
 #将数据加入redis，后面会统一入库
 #数据为dict，key是字段名
