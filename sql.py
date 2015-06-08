@@ -16,7 +16,7 @@ def GetCursor(server,db,dict=False,type=0):
 	_user = server["user"]
 	_pw = server["pw"]
 	cursor = None
-	if type == 0: #mysql 
+	if type == 0: #mysql
 		conn = None
 		if dict:
 			conn = MySQLdb.connect(_host,_user,_pw,db,3306,cursorclass=MySQLdb.cursors.DictCursor)
@@ -32,11 +32,11 @@ def GetCursor(server,db,dict=False,type=0):
 def is_connect(cursor,server,db,dict=False):
 	try:
 		cursor.connection.ping()
-		return cursor 
+		return cursor
 	except Exception,e:
 		cursor.close()
 		cursor = GetCursor(server,db,dict)
-		return cursor 
+		return cursor
 
 def trans2str(input):
 	output=input
@@ -66,7 +66,7 @@ def GetWhere(data):
 		else:
 			wsql = wsql + "%s='%s' and "%(key,trans2str(data[key]))
 	return wsql[0:-4]
-	
+
 #=================================== 插入
 def _ExeInsert(cursor,table,data,ignore_key="id",output=False):
 	rsql = "insert into " + table + "("
@@ -144,7 +144,7 @@ def _ExeSelectList(cursor,table,keylist,where_data,one=False,output=False):
 	for key in keylist:
 		rsql = rsql + key + ","
 	rsql = rsql[0:-1]
-	rsql = rsql + " from " + table 
+	rsql = rsql + " from " + table
 	where = " where "
 	for key in where_data[0]:
 		where += key + " in ("
@@ -189,7 +189,7 @@ def ExeSelect(cursor,table,keylist,where_data,one=False,output=False):
 #ret：以某字段为key的dict里是数据库的行结果
 def transMysqlRetDict(rows,key,columns=None):
 	result = {}
-	if isinstance(rows[0],dict):	
+	if isinstance(rows[0],dict):
 		for row in rows:
 			result[row[key]] = row
 	elif isinstance(rows[0],list) and columns:
@@ -225,7 +225,7 @@ def _isInDatabase(cursor,table,data,division=1,key=None):
 		return True
 	else:
 		return False
-			
+
 #参数data为[{key:value}]
 #key只能是一个字段，返回的结果为dict，key是库里有的key字段的数据
 def _isInDatabaseList(cursor,table,data,division=1,key=None):
@@ -235,15 +235,15 @@ def _isInDatabaseList(cursor,table,data,division=1,key=None):
 			if _isInDatabase(cursor,table,item,division,key):
 				ret[item.values[0]] = 1
 		return ret
-			
+
 	key = ""
 	if len(data) == 0:
-		return [] 
+		return []
 	for k in data[0]:
 		key = trans2str(k)
 		break
 	rows = _ExeSelectList(cursor,table,[key],data)
-	ret = {} 
+	ret = {}
 	for row in rows:
 		if isinstance(row,dict):
 			ret[row[key]] = 1
@@ -270,7 +270,7 @@ def has_bad_sql(args):
 			if key in args[i]:
 				return True
 	return False
-		
+
 #============================================ 其他
 #将数据加入redis，后面会统一入库
 #数据为dict，key是字段名

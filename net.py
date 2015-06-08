@@ -1,229 +1,246 @@
 #!/usr/bin/python
 #coding=utf-8
 import urllib
-import json
 import urllib2
 import gzip
 import time
 import random
 import StringIO
-import sys,os
+import os
 import traceback
-codes = ["301","302","303","304","307","400","404","401","403","405","406","408"
-			"500","501","502","503","504","505"]
-no_retry = [301,302,303,304,307,400,401,403,404,405,406,500,501,502,503,504,505]
+
+CODES = ["301", "302", "303", "304", "307", "400", "404", "401", "403", "405",\
+		"406", "408", "500", "501", "502", "503", "504", "505"]
+NO_RETRY = [301, 302, 303, 304, 307, 400, 401, 403, 404, 405, 406, 500, 501,\
+		502, 503, 504, 505]
 
 #some common net operation
 
-#======================================================== 网络 
-def DeGzip(data):
+def de_gzip(data):
+	"""decomporess data from gzip
+	"""
 	cmps = StringIO.StringIO(data)
 	gzipper = gzip.GzipFile(fileobj=cmps)
 	return gzipper.read()
 
-def Post(url,data,heads = {},datatype=True):
+def post(url, data, heads=None, datatype=True):
+	"""http post
+		data: dictionary struct, key value of the post data
+		heads: dictionaray struct, http head
+		datatype: define the return data
+			True: will return string
+			False: return the http object response
+	"""
 	try:
 		rep_header = {}
 		request = urllib2.Request(url)
 		data = urllib.urlencode(data)
-		for key in heads:
-			request.add_header(key, heads[key])
-		response = urllib2.urlopen(request,data,timeout=10)
+		if heads:
+			for key in heads:
+				request.add_header(key, heads[key])
+		response = urllib2.urlopen(request, data, timeout=10)
 		code = response.getcode()
-		headerinfo = response.info()
+		rhead = response.info()
 		rep_header["code"] = int(code)
-		for key,val in headerinfo.items():
+		for key, val in	rhead.items():
 			rep_header[key] = val
 		if datatype:
-			return (rep_header,response.read())
-	except Exception,e:
-		#print str(e)
-		if "404" in str(e):
-			return ({"code":404},"")
+			return (rep_header, response.read())
+		return (rep_header, response)
+	except EnvironmentError, msg:
+		#print str(msg)
+		if "404" in str(msg):
+			return ({"code":404}, "")
 		else:
-			return ({"code":-1},"")
+			return ({"code":-1}, "")
 
 def _get_error_code(e_str):
-	for code in codes:
+	for code in CODES:
 		if code in e_str:
 			return int(code)
 	if "page not find" in e_str:
 		return 404
 	return -1
 
-def Get(url,heads={},timeout=12):
-	fails=0
-	html=""
+def get(url, heads=None, timeout=12):
+	fails = 0
+	html = ""
 	rep_header = {}
-	headerinfo = {}
-	code=200
-	last_error = 0
+	rhead = {}
+	code = 200
 	while True:
 		try:
-			if fails>=3:
+			if fails >= 3:
 				break
-			request=urllib2.Request(url)
-			request.add_header("version","HTTP/1.1")
-			request.add_header("User-Agent","Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1500.72 Safari/537.36")
-			request.add_header("Accept-Encoding","identity")
-			for key in heads:
-				request.add_header(key,heads[key])
-			res_page=urllib2.urlopen(request,timeout=timeout)
-			code=res_page.getcode()
-			headerinfo=res_page.info()
-			if ("Content-Length" in headerinfo) and int(headerinfo['Content-Length'])>10048576:
-				code=99
-				html=""
+			request = urllib2.Request(url)
+			request.add_header("version", "HTTP/1.1")
+			request.add_header("Accept-Encoding", "identity")
+			request.add_header("User-Agent", "Mozilla/5.0 (Windows NT 6.1) \
+				AppleWebKit/537.36 (KHTML,  like Gecko) Chrome/28.0.1500.72 Safari/537.36")
+			if heads:
+				for key in heads:
+					request.add_header(key, heads[key])
+
+			res_page = urllib2.urlopen(request, timeout=timeout)
+			code = res_page.getcode()
+			rhead = res_page.info()
+			if ("Content-Length" in	rhead) and int(rhead['Content-Length']) > 10048576:
+				code = 99
+				html = ""
 			else:
-				html=res_page.read()
-			if "Content-Encoding" in headerinfo and 'gzip' in headerinfo["Content-Encoding"]:
-				html=DeGzip(html)
+				html = res_page.read()
+
+			if "Content-Encoding" in	rhead:
+				if 'gzip' in	rhead["Content-Encoding"]:
+					html = de_gzip(html)
 			break
-		except Exception,e:
-			last_error = str(e)
-			code = _get_error_code(str(e))
-			if code in no_retry:
+		except EnvironmentError, msg:
+			code = _get_error_code(str(msg))
+			if code in NO_RETRY:
 				rep_header["code"] = code
-				return (rep_header,"")
+				return (rep_header, "")
 			fails = fails + 1
 			time.sleep(0.5)
+
 	rep_header["code"] = code
-	for key,val in headerinfo.items():
+	for key, val in	rhead.items():
 		rep_header[key] = val
-	return (rep_header,html)
+	return (rep_header, html)
 
 #指定要返回gzip编码的数据的get
-def Get_gzip(url,heads={}):
+def get_gzip(url, heads=None):
 	heads["Accept-Encoding"] = "gzip"
-	(code,html) = Get(url, heads)
-	if code ==200:
-		html = DeGzip(html)
-	return (code,html)
+	(code, html) = get(url, heads)
+	if code == 200:
+		html = de_gzip(html)
+	return (code, html)
 
 #================================ 使用代理
-#使用代理，先调用InitProxy载入代理配置文件
-#配置文件格式 ip:port\tdescription
-#ProxyGet和Post会随机调用代理列表中的代理
-g_proxy_list = [] 
-def InitProxy(proxy_file):
-	f_proxy = open(proxy_file,"r+")
-	lines = f_proxy.readlines()	
+#使用代理，先调用init_proxy载入代理配置文件
+#配置文件格式 ip_addr:port\tdescription
+#proxy_get和post会随机调用代理列表中的代理
+G_PROXY_LIST = []
+def init_proxy(proxy_file):
+	f_proxy = open(proxy_file, "r+")
+	lines = f_proxy.readlines()
 	f_proxy.close()
 	count = 0
 	for line in lines:
 		if line[0] == "#":
 			continue
-		line = line.replace("\t"," ")
-		line = line.replace("\n","")
-		ip = line.split(" ")[0]
+		line = line.replace("\t", " ")
+		line = line.replace("\n", "")
+		ip_addr = line.split(" ")[0]
 		desc = line.split(" ")[-1]
-		proxy = {"http":ip,"count":count,"desc":desc}
+		proxy = {"http":ip_addr, "count":count, "desc":desc}
 		count = count + 1
-		g_proxy_list.append(proxy)
+		G_PROXY_LIST.append(proxy)
 
-def ProxyPost(url,data,heads = {},datatype=True):
-	retry = 3 
+def proxy_post(url, data, heads=None, datatype=True):
+	retry = 3
 	rep_header = {}
-	headerinfo = {}
-	proxy = g_proxy_list[random.randint(0,len(g_proxy_list)-1)]		
+	rhead = {}
+	proxy = G_PROXY_LIST[random.randint(0, len(G_PROXY_LIST)-1)]
 	proxy_handler = urllib2.ProxyHandler(proxy)
 	opener = urllib2.build_opener(proxy_handler)
 	request = urllib2.Request(url)
 	data = urllib.urlencode(data)
 	code = 200
-	for key in heads:
-		request.add_header(key, heads[key])
+	if heads:
+		for key in heads:
+			request.add_header(key, heads[key])
 	while retry:
 		try:
-			response = opener.open(request,data,timeout=10)
+			response = opener.open(request, data, timeout=10)
 			code = response.getcode()
-			headerinfo = response.info()
+			rhead = response.info()
 			if datatype:
-				return ({"code":code},response.read())
+				return ({"code":code}, response.read())
 			else:
-				return ({"code":code},response)
-		except Exception,e:
+				return ({"code":code}, response)
+		except EnvironmentError, msg:
 			retry = retry - 1
 			time.sleep(1)
-			code = _get_error_code(str(e))
-			if code in no_retry:
+			code = _get_error_code(str(msg))
+			if code in NO_RETRY:
 				rep_header["code"] = code
-				return (rep_header,"")
-	rep_header["code"] = code
-	for key,val in headerinfo.items():
-		rep_header[key] = val
-	return (rep_header,html)
+				return (rep_header, "")
 
-def ProxyGet(url,heads = {},datatype=True):
-	retry = 3 
+	rep_header["code"] = code
+	for key, val in	rhead.items():
+		rep_header[key] = val
+	return (rep_header, "")
+
+def proxy_get(url, heads=None, datatype=True):
+	retry = 3
 	rep_header = {}
-	headerinfo = {}
-	proxy = g_proxy_list[random.randint(0,len(g_proxy_list)-1)]		
+	rhead = {}
+	proxy = G_PROXY_LIST[random.randint(0, len(G_PROXY_LIST)-1)]
 	proxy_handler = urllib2.ProxyHandler(proxy)
 	opener = urllib2.build_opener(proxy_handler)
 	request = urllib2.Request(url)
-	for key in heads:
-		request.add_header(key, heads[key])
-	while retry:	
+	if heads:
+		for key in heads:
+			request.add_header(key, heads[key])
+	while retry:
 		try:
-			response = opener.open(request,timeout=10)
+			response = opener.open(request, timeout=10)
 			code = response.getcode()
 			if datatype:
-				headerinfo = response.info()
-				headerinfo["code"] = str(code)
+				rhead = response.info()
+				rhead["code"] = str(code)
 				html = response.read()
-				if "Content-Encoding" in headerinfo and 'gzip' in headerinfo["Content-Encoding"]:
-					html = DeGzip(html)
-				return (headerinfo,html)
+				if "Content-Encoding" in rhead and 'gzip' in rhead["Content-Encoding"]:
+					html = de_gzip(html)
+				return (rhead, html)
 			else:
-				return (headerinfo,response)
-		except Exception,e:
-			retry = retry - 1 
-			if "304" in str(e):
+				return (rhead, response)
+		except EnvironmentError, msg:
+			retry = retry - 1
+			if "304" in str(msg):
 				rep_header["code"] = 304
-				return (rep_header,"")
+				return (rep_header, "")
 			time.sleep(1)
 			if retry == 0:
 				print proxy
-				print traceback.format_exc(str(e))
-				if "404" in str(e):
-					return ({"code":404},"")
+				print traceback.format_exc(str(msg))
+				if "404" in str(msg):
+					return ({"code":404}, "")
 				else:
-					return ({"code":-1},"")
+					return ({"code":-1}, "")
+
 	rep_header["code"] = code
-	for key,val in headerinfo.items():
+	for key, val in	rhead.items():
 		rep_header[key] = val
-	return (rep_header,html)
-	
+	return (rep_header, "")
+
 #========================================================= 下载文件
-def DownloadFile(url,local,head=None,timeout=10):
+def download_file(url, local, head=None, timeout=10):
 	retry = True
 	while retry:
 		try:
 			request = urllib2.Request(url)
 			if head:
-				for key,value in head.items():
-					request.add_header(key,value)
-			uf = urllib2.urlopen(request, timeout=timeout)
+				for key, value in head.items():
+					request.add_header(key, value)
+			request = urllib2.urlopen(request, timeout=timeout)
 			length = 0
-			headinfo = uf.info()
+			headinfo = request.info()
 			if "Content-Length" in headinfo:
 				length = int(headinfo["Content-Length"])
-			tmpdata = uf.read(64*1024)
-			of = open(local,"wb+")
+			tmpdata = request.read(64*1024)
+			file_handle = open(local, "wb")
 			while tmpdata:
-				of.write(tmpdata)
-				tmpdata = uf.read(64*1024)
-			of.close()
-			uf.close()
+				file_handle.write(tmpdata)
+				tmpdata = request.read(64*1024)
+			file_handle.close()
+			request.close()
 			if length > 0:
 				if os.path.getsize(local) == length:
 					return True
 			os.remove(local)
 			return False
-		except Exception,e:
-			print e
-			print traceback.format_exc("")
-			retry = False	
+		except EnvironmentError, msg:
+			print msg
+			retry = False
 		return False
-	
