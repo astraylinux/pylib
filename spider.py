@@ -4,63 +4,54 @@ import re
 #import BeautifulSoup
 #import chardet
 
-##替换常用HTML字符实体.
-#使用正常的字符替换HTML中特殊的字符实体.
-#你可以添加新的实体字符到CHAR_ENTITIES中, 处理更多HTML字符实体.
-#@param htmlstr HTML字符串.
-def replace_char_entity(htmlstr):
-	CHAR_ENTITIES={'nbsp':' ', '160':' ',
-	'lt':'<', '60':'<',
-	'gt':'>', '62':'>',
-	'amp':'&', '38':'&',
-	'quot':'"', '34':'"', }
+CHAR_ENTITIES = {'nbsp':' ', '160':' ', 'lt':'<', '60':'<', 'gt':'>',\
+			'62':'>', 'amp':'&', '38':'&', 'quot':'"', '34':'"'}
 
-	re_charEntity=re.compile(r'&#?(?P<name>\w+);')
-	sz=re_charEntity.search(htmlstr)
-	while sz:
-		entity=sz.group()#entity全称，如&gt;
-		key=sz.group('name')#去除&;后entity, 如&gt;为gt
+def replace_char_entity(htmlstr):
+	"""
+		Use the normal chars replace the HTML special character.
+	"""
+	re_char_entity = re.compile(r'&#?(?P<name>\w+);')
+	se_str = re_char_entity.search(htmlstr)
+	while se_str:
+		key = se_str.group('name')
 		try:
-			htmlstr=re_charEntity.sub(CHAR_ENTITIES[key], htmlstr, 1)
-			sz=re_charEntity.search(htmlstr)
+			htmlstr = re_char_entity.sub(CHAR_ENTITIES[key], htmlstr, 1)
+			se_str = re_char_entity.search(htmlstr)
 		except KeyError:
-		#以空串代替
-			htmlstr=re_charEntity.sub('', htmlstr, 1)
-			sz=re_charEntity.search(htmlstr)
+			htmlstr = re_char_entity.sub('', htmlstr, 1)
+			se_str = re_char_entity.search(htmlstr)
 	return htmlstr
 
-##过滤HTML中的标签
-#将HTML中标签等信息去掉
-#@param htmlstr HTML字符串.
 def filter_tags(htmlstr):
-	del_list = []
-	s = htmlstr
-	#blank_line=re.compile('\n+')#去掉多余的空行
-	#s=blank_line.sub('\n', s)
-	re_br = re.compile('<br\s*?/?>')#处理换行
-	s=re_br.sub('\n', s)#将br转换为换行
+	"""
+		Remove Html struct labels. Get the content only.
+	"""
+	dlist = []
+	h_str = htmlstr
+	re_br = re.compile('<br\\s*?/?>') #deal wrap
+	h_str = re_br.sub('\n', h_str) #br to \n
 
-	del_list.append(re.compile('<![doctype|DOCTYPE][^>]*>', re.I))#匹配doctype
-	del_list.append(re.compile('//<!\[CDATA\[[^>]*//\]\]>', re.I))#匹配CDATA
-	del_list.append(re.compile('<\s*script[^>]*>[^<]*<\s*/\s*script\s*>', re.I))#Script
-	del_list.append(re.compile('<\s*style[^>]*>[^<]*<\s*/\s*style\s*>', re.I))#style
-	del_list.append(re.compile('</?\w+[^>]*>'))#HTML标签
-	del_list.append(re.compile('<!--[^>]*-->'))#HTML注释
+	dlist.append(re.compile('<![doctype|DOCTYPE][^>]*>', re.I))
+	dlist.append(re.compile('//<!\\[CDATA\\[[^>]*//\\]\\]>', re.I))
+	dlist.append(re.compile('<\\s*script[^>]*>[^<]*<\\s*/\\s*script\\s*>',\
+			re.I))
+	dlist.append(re.compile('<\\s*style[^>]*>[^<]*<\\s*/\\s*style\\s*>',\
+			re.I))
+	dlist.append(re.compile('</?\\w+[^>]*>'))
+	dlist.append(re.compile('<!--[^>]*-->'))
 
-	for del_re in del_list:
-		s = del_re.sub('', s)
+	for del_re in dlist:
+		h_str = del_re.sub('', h_str)
 
-	s=replace_char_entity(s)#替换实体
-	return s
+	return replace_char_entity(h_str)
 
-def html_code(html):
+def html_charset(html):
+	""" Get html charset."""
 	badcode = {"gbk2312":"gb2312"}
 	pos = 0
-	try:
-		pos = html.lower().find("charset=")
-		if pos == -1:
-			return False
-	except Exception, e:
+	pos = html.lower().index("charset=")
+	if pos == -1:
 		return False
 
 	cutstr = html[pos:pos+20].lower().replace("charset=", "")
@@ -71,7 +62,8 @@ def html_code(html):
 	return code
 
 def html2utf8(html, def_code=None):
-	code = html_code(html)
+	""" Encode html to utf8."""
+	code = html_charset(html)
 	if code:
 		html = html.decode(code, "ignore").encode('utf-8')
 		return html

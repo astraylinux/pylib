@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #coding=utf-8
-import sys,os
+import os
 import redis
 import logging
 import time
@@ -8,353 +8,295 @@ import socket
 import hashlib
 import datetime
 import random
-import _langconv
 import re
 from decimal import Decimal
-#import subprocess
 
-py_map = {}
-#================================= util ==================================
-#---- redis
-def GetRedisClient(server):
-	return redis.Redis(host=server["host"],port=server["port"],db=server["db"])
+PINYIN_LIB = {}
+IS_LANGCONV_INIT = False
+#============================================================= simple function
+def get_redis_clinet(server):
+	""" Connect redis use config: {"host":"127.0.0.1", "port":6379, "db":1}"""
+	return redis.Redis(host=server["host"], port=server["port"], db=server["db"])
 
-#---- logging config
-def GetLogger(logfile,flag,name,formatstr=None,level=logging.INFO):
-    logger = logging.getLogger(name)
-    ch = logging.handlers.RotatingFileHandler(logfile)
-    if not formatstr:
-        formatstr = "["+flag+"][%(asctime)s][%(filename)s][%(lineno)d][%(levelname)s]::%(message)s"
-    formatter = logging.Formatter(formatstr)
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-    logger.setLevel(level)
-    return logger
+def log_config(logfile, level=logging.INFO, fmt=None):
+	""" Quick to setting logging """
+	if not fmt:
+		fmt = "[%(asctime)s][%(filename)s][%(lineno)d][%(levelname)s]::%(message)s"
+	logging.basicConfig(filename=logfile, level=level, format=fmt)
 
-def LogConfig(logfile,level=logging.INFO,fmt=None):
-    if not fmt:
-        fmt = "[%(asctime)s][%(filename)s][%(lineno)d][%(levelname)s]::%(message)s"
-    logging.basicConfig(filename=logfile,level=level,format=fmt)
+def get_now_datetime():
+	""" Quick to get normal date time """
+	return time.strftime('%Y-%m-%d-%H:%M:%S', time.localtime(time.time()))
 
-#---- date
-def GetNowDatetime():
-    return time.strftime('%Y-%m-%d-%H:%M:%S',time.localtime(time.time()))
-
-def GetDate(offset=-1):
-	today     = datetime.date.today()
-	offset_d  = datetime.timedelta(days=offset)
-	the_date  = today + offset_d 
+def get_date(offset=-1):
+	"""
+		Get date with offset.
+		offset < 0, it's the pass offset data.
+	 	offset > 0, it's the future.
+	"""
+	today = datetime.date.today()
+	offset_d = datetime.timedelta(days=offset)
+	the_date = today + offset_d
 	return str(the_date)
 
-def GetTime():
-	return Decimal(datetime.datetime.utcnow().microsecond)/1000000 + Decimal(int(time.time()))
+def get_micro_time():
+	""" Get now time into microsecond """
+	micro = Decimal(datetime.datetime.utcnow().microsecond)/1000000
+	second = Decimal(int(time.time()))
+	return second + micro
 
-def Date2second(the_date):
-    return int(time.mktime(time.strptime(str(the_date)[:19], "%Y-%m-%d %H:%M:%S")))
+def date2second(the_date):
+	""" Trans the datetime to second from 1970"""
+	return int(time.mktime(time.strptime(str(the_date)[:19], "%Y-%m-%d %H:%M:%S")))
 
-def Second2date(second):
-    timeArray = time.localtime(second)
-    return time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
-	
-#---- socket
-def Getip():
-    ip = socket.gethostbyname(socket.gethostname())
-    return ip
-   
-# 
-def GetApkid(sku):
-    md5 = hashlib.md5(sku).hexdigest()
-    high = hex2dec(md5[1:16])
-    low = hex2dec(md5[17:32])
-    apkid = int(high) + int(low)
-    return apkid
-    
-#---- md5
-def GetMd5(string):
-    return hashlib.md5(string).hexdigest()
-   
-#---- mp3 info
-def GetMp3Info(mp3,flag=""):
-	tmpfile = "/tmp/mp3info.tmp" + flag
-	os.system("cutmp3 -I " + mp3 + " >" + tmpfile)
-	tmp = open(tmpfile)
-	info = tmp.read()
-	tmp.close()
-	return info
+def second2date(second):
+	""" Trans the time.time() second to datetime """
+	time_array = time.localtime(second)
+	return time.strftime("%Y-%m-%d %H:%M:%S", time_array)
 
-def GetMp3Length(mp3):
-	info = GetMp3Info(mp3)
-	s_index = info.index("second(s)")
-	m_index = info.index("minute(s)")
-	second = int(float(info[s_index - 8:s_index-1].split(" ")[-1]))
-	minute = int(info[m_index-5:m_index-1].split(" ")[-1])
-	length = minute * 60 + second
-	return length
+def get_ip():
+	""" Get you ip """
+	return socket.gethostbyname(socket.gethostname())
 
-#---- 
-def GetMd5Path(md5):
-	return md5[-1] + '/' + md5[29:-1] + '/'	
+def get_md5(string):
+	return hashlib.md5(string).hexdigest()
 
-#========================== 文字转换 =================================
-#中文转拼音
-def trans2py(cn_str,entire=True):
-	#如果py_map是空的，则初始化
-	if not py_map:
+#============================================================= language
+def trans2py(cn_str, entire=True):
+	"""
+		Trans the Chinese word to pinyin.
+		if entire=False, will only get the first char each word.
+	"""
+	if not PINYIN_LIB:
+		#init PINYIN_LIB from the word lib
 		path = os.path.dirname(__file__)
-		fp	= open(path + "/data/pinyin-utf8.db","r+")
-		lines = fp.readlines()
-		fp.close()
+		fpoint = open(path + "/data/pinyin-utf8.db", "r+")
+		lines = fpoint.readlines()
+		fpoint.close()
 		for line in lines:
-			sp = line.replace("\n","").split(",")
-			py_map[sp[0]] = sp[1][:-1]
+			row = line.replace("\n", "").split(",")
+			PINYIN_LIB[row[0]] = row[1][:-1]
 
-	#汉字转拼音
 	i = 0
 	rstr = ""
+	cn_str = cn_str.encode("utf8")
 	try:
 		cn_str = cn_str.encode("utf8")
-	except Exception,e:
-		#print e
+	except UnicodeDecodeError:
 		return ""
 
 	cn_str = unicode(cn_str)
-	namecn	= ""
-	sp = cn_str.split(" ")
-	for s in sp:
-		if namecn != "":
-			namecn += " "
-		matches = re.findall(u"[\u4e00-\u9fa5]",s)
+	all_cn = ""
+	row = cn_str.split(" ")
+	for word in row:
+		if all_cn != "":
+			all_cn += " "
+		matches = re.findall(u"[\u4e00-\u9fa5]", word)
 		for match in matches:
-			namecn += str(match)
-	
-	if not namecn:
+			all_cn += str(match)
+
+	if not all_cn:
 		return ""
-	while i < len(namecn):
-		zi = namecn[i:i+3] 
-		if zi in py_map:
+	while i < len(all_cn):
+		one = all_cn[i:i+3]
+		if one in PINYIN_LIB:
 			if not entire:
-				rstr += py_map[zi][0]
+				rstr += PINYIN_LIB[one][0]
 			else:
-				rstr += py_map[zi]
-		if i+3 < len(namecn) and namecn[i+3] == " ":
+				rstr += PINYIN_LIB[one]
+		if i+3 < len(all_cn) and all_cn[i+3] == " ":
 			rstr += " "
 			i += 1
 		i = i+3
 	return rstr
 
-#简体字转繁体字
 def conver_sp2td(cn_str):
+	""" Conver simple Chinese to traditional Chinese """
+	if not IS_LANGCONV_INIT:
+		from pylib import _langconv
+		IS_LANGCONV_INIT = True
+
 	cn_str = _langconv.Converter('zh-hant').convert(cn_str.decode('utf-8'))
 	return cn_str.encode('utf-8')
 
-#繁体转简体
 def conver_td2sp(cn_str):
+	""" Conver traditional Chinese to simple Chinese """
+	if not IS_LANGCONV_INIT:
+		from pylib import _langconv
+		IS_LANGCONV_INIT = True
 	cn_str = _langconv.Converter('zh-hans').convert(cn_str.decode('utf-8'))
 	return cn_str.encode('utf-8')
 
-#========================== 数据结构 ==================================
-def GetRandList(alist,num,propertys=[]):
-	#从现有队列生成随机队列,可以加权
+#====================================================== struct
+def get_random_list(alist, num, propertys=None):
+	""" Get a random list from alist, weighted with propertys """
+	#从现有队列生成随机队列, 可以加权
 	default = 1
 	section = 0
-	count   = 0
-	ranges	= []
-	rlist	= []
+	count = 0
+	ranges = []
+	rlist = []
 
 	if propertys:
 		for key in propertys:
 			default = default + propertys[key]
 		default = int(default/len(propertys))
+	else:
+		propertys = []
 
 	#生成权重范围队列
-	for key in alist: 
+	for key in alist:
 		if key in propertys:
 			section = section + propertys[key]
 		else:
 			section = section + default
-		#print key,section
+		#print key, section
 		ranges.append(section)
-	
+
 	while count < num:
 		index = 0
-		ri = random.randint(0,section)
-		while ri > ranges[index]:
+		random_int = random.randint(0, section)
+		while random_int > ranges[index]:
 			index = index + 1
 		item = alist[index]
 		if item in rlist:
 			continue
 		rlist.append(item)
 		count = count + 1
-		#print ri,item
+		#print random_int, item
 	return rlist
 
-#---- Algorithm 
-def GetSortList(key_map,desc=False):
+#======================================================== Algorithm
+def sort_list(key_map, desc=False):
+	""" Sort a list """
 	items = key_map.items()
-   	backitems = [[v[1],v[0]] for v in items]
-   	backitems.sort()
-   	key_list = []
-   	if desc:
-   	        return [backitems[i][1] for i in range(len(backitems)-1,-1,-1)]
-   	else:
-   	        return [backitems[i][1] for i in range(0,len(backitems))]
-
-def SortList4MapItem(List,key,desc=False):
-	backitems = [[v[key],v] for v in List]
+	backitems = [[v[1], v[0]] for v in items]
 	backitems.sort()
 	if desc:
-   	        return [backitems[i][1] for i in range(len(backitems)-1,-1,-1)]
-   	else:
-   	        return [backitems[i][1] for i in range(0,len(backitems))]
+		return [backitems[i][1] for i in range(len(backitems)-1, -1, -1)]
+	else:
+		return [backitems[i][1] for i in range(0, len(backitems))]
 
-def List2Str(items,sep):
+def dict_sort_list(adict, key, desc=False):
+	""" Return a list, that sort the dict by the key, not change the dict """
+	backitems = [[v[key], v] for v in adict]
+	backitems.sort()
+	if desc:
+		return [backitems[i][1] for i in range(len(backitems)-1, -1, -1)]
+	else:
+		return [backitems[i][1] for i in range(0, len(backitems))]
+
+def list2str(items, sep):
+	""" Change list to string, sep is the separate. """
 	rstr = ""
 	for item in items:
 		rstr = rstr + str(item) + sep
 	return rstr[:-1]
 
-def GetRankMap(map,num,desc=False):
-	rlist = GetSortList(map,desc)
+def dict_sort(adict, key, desc=False, num=None):
+	""" Sort dict by key, return a new dict, num limit number."""
+	rlist = dict_sort_list(adict, key, desc)
 	n_map = {}
 	for key in rlist[:num]:
-		n_map[key] = map[key]
+		n_map[key] = adict[key]
 	return n_map
 
-def List2dict(rows,keys):
-    result = []
-    length = len(keys)
-    for row in rows:
-        data = {}
-        for i in range(0,length):
-            data[keys[i]] = row[i]
-        result.append(data)
-    return result
+def list2dict(rows, keys):
+	""" Change list to dict with specifi key. Index map index."""
+	result = []
+	length = len(keys)
+	for row in rows:
+		data = {}
+		for i in range(0, length):
+			data[keys[i]] = row[i]
+		result.append(data)
+	return result
 
-#==================================== FILE ==========================================
-def GetLines(file_name):
-	#读取文件行
-	fp 	= open(file_name,'r+')
-	lines 	= fp.readlines()
-	fp.close()
-	for i in range(0,len(lines)):
-		lines[i] = lines[i].replace('\n','')
+#====================================================== File
+def get_lines(file_name):
+	""" Read all lines to a list from file."""
+	fpoint = open(file_name, 'r+')
+	lines = fpoint.readlines()
+	fpoint.close()
+	for i in range(0, len(lines)):
+		lines[i] = lines[i].replace('\n', '')
 	return lines
 
-def GetFileMd5(strFile):  
-    fi = None;  
-    bRet = False;  
-    strMd5 = "";  
-    try:  
-        fi = open(strFile, "rb");  
-        md5 = hashlib.md5();  
-        strRead = "";  
-        while True:  
-            strRead = fi.read(8096);  
-            if not strRead:  
-                break;  
-            md5.update(strRead);  
-        #read file finish  
-        bRet = True;  
-        strMd5 = md5.hexdigest();  
-    except:  
-        bRet = False;  
-    finally:   
-        if fi:  
-            fi.close()  
-    return strMd5 
+def get_file_md5(file_name):
+	""" Get file's md5."""
+	file_in = None
+	ret_md5 = ""
+	try:
+		file_in = open(file_name, "rb")
+		md5 = hashlib.md5()
+		str_read = ""
+		while True:
+			str_read = file_in.read(8096)
+			if not str_read:
+				break
+			md5.update(str_read)
+		ret_md5 = md5.hexdigest()
+	except IOError:
+		ret_md5 = ""
+	finally:
+		if file_in:
+			file_in.close()
+	return ret_md5
 
-#对list去重，如果list的项是dict要给出去重用的key
-def DuplicateList(in_list,key=None):
+def del_duplicate(struct, key=None):
+	"""
+		Remove duplicate item from list or dict.
+		For list key=None, For dict, must appoint the key.
+	"""
 	result = []
 	tmp = {}
-	for item in in_list:
+	for item in struct:
 		data = item
-		if isinstance(item,dict):
+		if isinstance(item, dict):
 			data = item[key]
 		if not data in tmp:
 			result.append(item)
 			tmp[data] = 1
 	return result
 
-#============================================================================= 字符串
-def Trim(string):
-	start = 0
-	end = 0
-	for i in string:
-		if i in " \t\n\r":
-			start += 1
-		else:
+#============================================================== conversion
+def bin2dec(string_num):
+	""" Binary convert to decimal."""
+	return str(int(string_num, 2))
+
+def hex2dec(string_num):
+	""" Hexadecimal convert to decimal."""
+	return str(int(string_num.upper(), 16))
+
+def dec2bin(string_num):
+	""" Decimal convert to binary."""
+	base = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'A', 'B', 'C', 'D', 'E', 'F']
+
+	num = int(string_num)
+	mid = []
+	while True:
+		if num == 0:
 			break
-	for i in string[::-1]:
-		if i in " \t\n\r":
-			end -= 1
-		else:
+		num, rem = divmod(num, 2)
+		mid.append(base[rem])
+	return ''.join([str(x) for x in mid[::-1]])
+
+def dec2hex(string_num):
+	""" Decimal convert to Hexadecimal."""
+	base = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'A', 'B', 'C', 'D', 'E', 'F']
+	num = int(string_num)
+	mid = []
+	while True:
+		if num == 0:
 			break
-	if end == 0:
-		return string[start:]
-	else:
-		return string[start:end]
+		(num, rem) = divmod(num, 16)
+		mid.append(base[rem])
+	return ''.join([str(x) for x in mid[::-1]])
 
-#============================================================================== 进制转换
-# base = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F]
-base = [str(x) for x in range(10)] + [ chr(x) for x in range(ord('A'),ord('A')+6)]
+def hex2bin(string_num):
+	""" Hexadecimal convert to binary."""
+	return dec2bin(hex2dec(string_num.upper()))
 
-# bin2dec
-def Bin2dec(string_num):
-    return str(int(string_num, 2))
-
-# hex2dec
-def Hex2dec(string_num):
-    return str(int(string_num.upper(), 16))
-
-# dec2bin
-def Dec2bin(string_num):
-    num = int(string_num)
-    mid = []
-    while True:
-        if num == 0: break
-        num,rem = divmod(num, 2)
-        mid.append(base[rem])
-    return ''.join([str(x) for x in mid[::-1]])
-
-# dec2hex
-def Dec2hex(string_num):
-    num = int(string_num)
-    mid = []
-    while True:
-        if num == 0: break
-        num,rem = divmod(num, 16)
-        mid.append(base[rem])
-    return ''.join([str(x) for x in mid[::-1]])
-
-# hex2tobin
-def Hex2bin(string_num):
-    return dec2bin(hex2dec(string_num.upper()))
-
-# bin2hex
-def Bin2hex(string_num):
-    return dec2hex(bin2dec(string_num))
-
-def GetUrlmd5i(strmd5):
-    return hex2dec(str(strmd5)[0:13])
-
-#============================================================================== shell
-#def getPIPE(cmd): #cmd like ["echo","output string"]
-#	#p = subprocess.Popen(["/bin/bash"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True)
-#	p = subprocess.Popen(["cat","/proc/cpuinfo"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True)
-#	result = ""
-#	while True:
-#		pstr = p.stdout.readline()
-#		print pstr
-#		if pstr:
-#			result = result + pstr + "\n"
-#			continue
-#		break
-#	return result
-
-
-
-
-
-
-
+def bin2hex(string_num):
+	""" Binary convert to hexadecimal."""
+	return dec2hex(bin2dec(string_num))
