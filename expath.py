@@ -4,43 +4,51 @@ import re
 import json
 from lxml import etree
 
-class path_basic:
-	#传url是为了提取相对路径的url可以组成完整
+class PathBasic(object):
+	"""
+		Pick basic class, some fixed functions and attributes.
+		Use the config to pick info from confusion html.
+	"""
 	def __init__(self, url, html, code="gbk"):
-		self.url = url
-		self.html = unicode(html.decode(code))
-		sp = url.split("/")
-		self.domain = sp[2]
-		self.url_domain = sp[0] + "//" + sp[2]
+		self._url = url
+		self._html = unicode(html.decode(code))
+		row = url.split("/")
+		self._domain = row[2]
+		self._url_domain = row[0] + "//" + row[2]
 		if url[-1] == "/":
-			self.path = url
+			self._path = url
 		else:
-			self.path = url.replace(url.split("/")[-1], "")
+			self._path = url.replace(url.split("/")[-1], "")
 
-	#如果提取结果是http链接，转换成完整路径
 	def _merge_url(self, url_sub):
+		""" If the url is relative path, convert to entire url."""
 		if not url_sub:
 			return
 		if "http://" in url_sub:
 			return url_sub
 		elif url_sub[0] == "/":
-			return str(self.url_domain + url_sub)
+			return str(self._url_domain + url_sub)
 		else:
-			return str(self.path + url_sub)
+			return str(self._path + url_sub)
 
-	#一些扩展的方法，对xpath的结果再处理, (分割，替换和正则)
 	def _ex_func(self, rstr, func):
-		method =  func["method"]
+		"""
+			Some extend function deal the result string that is appointed
+			in config, they are split, replace, re(refular expression), re.sub.
+			Is used to reprocess result string from one field.
+		"""
+		method = func["method"]
 		argv = func["argv"]
+		result = ""
 		if method == "split":
 			if not argv[0] in rstr:
 				return rstr
-			sp = rstr.split(argv[0])
+			row = rstr.split(argv[0])
 			if ", " in argv[1]:
 				for index in argv[1].split(", "):
-					result += sp[int(index)]
+					result += row[int(index)]
 			else:
-				result = sp[int(argv[1])]
+				result = row[int(argv[1])]
 		elif method == "replace":
 			result = rstr.replace(argv[0], argv[1])
 		elif method == "re":
@@ -57,13 +65,13 @@ class path_basic:
 			result = rstr
 		return result
 
-	#xpath提取之前做的处理
 	def _path_pre(self, val):
+		""" Do something before execute xpath or else."""
 		sentence = val["key"]
 		return sentence
 
-	#xpath提取完后再做的处理
 	def _path_after(self, rstr, val):
+		""" Do someting after xpath, it's _ex_func and _merge_url now."""
 		if "remake" in val:
 			for func in val["remake"]:
 				rstr = self._ex_func(rstr, func)
@@ -72,13 +80,15 @@ class path_basic:
 			rstr = self._merge_url(rstr)
 		return rstr
 
-	#提取的主要流程
 	def _path2array(self, tree, config):
+		"""
+			Main process of pick.
+		"""
 		result = {}
 		for key, val in config.items():
 			if key == "delete":
 				continue
-			#提取结果为字符串的
+			#pick result is string.
 			if not "type" in val:
 				sentence = self._path_pre(val)
 				ret = self._picker(tree, sentence)
@@ -89,7 +99,7 @@ class path_basic:
 					ret[0] = etree.tostring(ret[0], encoding="utf8")
 				ret = self._path_after(str(ret[0]), val)
 				result[key] = ret
-			#提取结果list列表
+			#pick result is list.
 			elif val["type"] == "list":
 				rlist = []
 				blocks = self._picker(tree, val["block"])
@@ -98,22 +108,22 @@ class path_basic:
 					if ret:
 						rlist.append(ret)
 				result[key] = rlist
-			#提取结果为dic
+			#pick result is dict.
 			elif val["type"] == "dict":
 				ret = self._path2array(tree, val["data"])
 				result[key] = ret
 		return result
 
-	#根据tree的类型来提取，待继承
 	def _picker(self, tree, sentence):
+		""" Real pick process. Must be rewrited."""
 		return
 
-	#根据具体类型初始化提取相关的对象，待继承
 	def _pick(self, config):
+		""" According to the pick type, input the config data. Must be rewrited."""
 		return
 
-	#外部调用
 	def pick(self, config):
+		""" Public api. Don't rewrite this."""
 		ret = self._pick(config)
 		if not ret:
 			return ret
@@ -124,22 +134,24 @@ class path_basic:
 				return ret[key]
 			return ret
 
-######################################################  html用xpath提取的子类
-class XPath(path_basic):
+######################################################  use xpath
+class XPath(PathBasic):
+	""" Pick class that use etree.xpath."""
 	def _picker(self, tree, sentence):
 		return tree.xpath(sentence)
 
 	def _pick(self, config):
 		parser = etree.HTMLParser()
-		tree = etree.fromstring(self.html, parser)
+		tree = etree.fromstring(self._html, parser)
 		if "delete" in config:
 			for path in config["delete"]:
 				if tree.xpath(path):
 					tree.xpath(path)[0].clear()
 		return self._path2array(tree, config)
 
-###################################################### json用路径方式提取的子类
-class XJson(path_basic):
+###################################################### json data
+class XJson(PathBasic):
+	""" Pick class to pick data from json, for api unification."""
 	def _picker(self, tree, sentence):
 		keys = sentence.split("/")
 		tmp = tree
@@ -147,7 +159,7 @@ class XJson(path_basic):
 			if len(key) == 0:
 				continue
 			if not key in tmp:
-				if key.isdigit() and isinstance(tmp, list) and len(tmp)>int(key):
+				if key.isdigit() and isinstance(tmp, list) and len(tmp) > int(key):
 					key = int(key)
 				else:
 					return False
@@ -157,80 +169,5 @@ class XJson(path_basic):
 		return tmp
 
 	def _pick(self, config):
-		tree = json.loads(self.html)
+		tree = json.loads(self._html)
 		return self._path2array(tree, config)
-
-
-################################################################# 配置示例
-#xpath配置例子, 解析“http://www.23us.com/html/51/51053/”
-#config = {
-#	"bookname":{"key":"""/html/body//h1/text()"""}, 	#不调用函数处理的
-#	"bookname":{
-#		"key":"""/html/body//h1/text()""",
-#		"remake":[
-#			{"method":"split", "argv":[" ", "0"]} #分割，取第一个
-#		]
-#	},
-#	"author":{
-#		"key":"""/html/body//h3/text()""",
-#		"remake":[
-#			{"method":"split", "argv":["：", "1"]},
-#			{"method":"replace", "argv":["长孙", ""]}, #替换
-#		]
-#	},
-#	"info":{ #提取字典
-#		"type":"dict",
-#		"data":{
-#			"title":{"key":"""/html//title/text()"""},
-#			"css":{
-#				"key":"""/html//link/@href""",
-#				"remake":[
-#					{"method":"re.sub", "argv":["\w*.css", "test.css"]}, #使用正则替换
-#				]
-#			},
-#			"js":{
-#				"key":"""/html/head/script/@src""",
-#				"not_abs_url":1, 	#表示不取url的完整路径
-#				"remake":[
-#					{"method":"re", "argv":["\w*.js"]}, #使用正则提取
-#				]
-#			}
-#		}
-#	},
-#	"chapter":{  #提取列表
-#		"type":"list",
-#		"block":"""/html/body//table[@id="at"]//td""",
-#		"data":{
-#			"name":{"key":"""./a/text()"""},
-#			"url":{"key":"""./a/@href"""},
-#		}
-#	},
-#}
-
-#json提取示例 http://apps.wandoujia.com/api/v1/apps/com.tencent.mtt
-#config = {
-#	"name":{"key":"""/title"""},
-#	"info":{
-#		"type":"dict",
-#		"data":{
-#			"packageName":{"key":"""/apks/0/packageName"""},
-#			"md5":{"key":"""/apks/0/md5"""},
-#			"version":{
-#				"key":"""/apks/0/versionName""",
-#				"remake":[
-#					{"method":"replace", "argv":[".", "_"]},
-#				]
-#			},
-#		}
-#	},
-#	"chapter":{
-#		"type":"list",
-#		"block":"""/apks/0/securityDetail""",
-#		"data":{
-#			"provider":{"key":"""/provider"""},
-#			"status":{"key":"""/status"""},
-#			"failedInfo":{"key":"""/failedInfo"""},
-#		}
-#	},
-#}
-
