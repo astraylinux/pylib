@@ -1,6 +1,7 @@
 #!/usr/bin/python
 #coding=utf-8
 import os
+import sys
 import redis
 import logging
 import time
@@ -10,9 +11,11 @@ import datetime
 import random
 import re
 from decimal import Decimal
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
 PINYIN_LIB = {}
-IS_LANGCONV_INIT = False
+LANGCONV = {}
 #============================================================= simple function
 def get_redis_clinet(server):
 	""" Connect redis use config: {"host":"127.0.0.1", "port":6379, "db":1}"""
@@ -40,10 +43,8 @@ def get_date(offset=-1):
 	return str(the_date)
 
 def get_micro_time():
-	""" Get now time into microsecond """
-	micro = Decimal(datetime.datetime.utcnow().microsecond)/1000000
-	second = Decimal(int(time.time()))
-	return second + micro
+	""" Get decimal time to micro second."""
+	return Decimal(time.time())
 
 def date2second(the_date):
 	""" Trans the datetime to second from 1970"""
@@ -58,7 +59,7 @@ def get_ip():
 	""" Get you ip """
 	return socket.gethostbyname(socket.gethostname())
 
-def get_md5(string):
+def md5(string):
 	return hashlib.md5(string).hexdigest()
 
 #============================================================= language
@@ -79,9 +80,9 @@ def trans2py(cn_str, entire=True):
 
 	i = 0
 	rstr = ""
-	cn_str = cn_str.encode("utf8")
+	cn_str = cn_str.encode("utf-8")
 	try:
-		cn_str = cn_str.encode("utf8")
+		cn_str = cn_str.encode("utf-8")
 	except UnicodeDecodeError:
 		return ""
 
@@ -110,76 +111,51 @@ def trans2py(cn_str, entire=True):
 		i = i+3
 	return rstr
 
-def conver_sp2td(cn_str):
+def convert_sp2td(cn_str):
 	""" Conver simple Chinese to traditional Chinese """
-	if not IS_LANGCONV_INIT:
+	if not LANGCONV:
 		from pylib import _langconv
-		IS_LANGCONV_INIT = True
-
-	cn_str = _langconv.Converter('zh-hant').convert(cn_str.decode('utf-8'))
+		LANGCONV["lib"] = _langconv
+	cn_str = LANGCONV["lib"].Converter('zh-hant').convert(cn_str.decode('utf-8'))
 	return cn_str.encode('utf-8')
 
-def conver_td2sp(cn_str):
+def convert_td2sp(cn_str):
 	""" Conver traditional Chinese to simple Chinese """
-	if not IS_LANGCONV_INIT:
+	if not LANGCONV:
 		from pylib import _langconv
-		IS_LANGCONV_INIT = True
-	cn_str = _langconv.Converter('zh-hans').convert(cn_str.decode('utf-8'))
+		LANGCONV["lib"] = _langconv
+	cn_str = LANGCONV["lib"].Converter('zh-hans').convert(cn_str.decode('utf-8'))
 	return cn_str.encode('utf-8')
 
 #====================================================== struct
-def get_random_list(alist, num, propertys=None):
+def get_random_list(olist, num=None):
 	""" Get a random list from alist, weighted with propertys """
 	#从现有队列生成随机队列, 可以加权
-	default = 1
-	section = 0
-	count = 0
-	ranges = []
-	rlist = []
+	newlist = list(olist)
+	if num == None:
+		num = len(newlist)
 
-	if propertys:
-		for key in propertys:
-			default = default + propertys[key]
-		default = int(default/len(propertys))
-	else:
-		propertys = []
-
-	#生成权重范围队列
-	for key in alist:
-		if key in propertys:
-			section = section + propertys[key]
-		else:
-			section = section + default
-		#print key, section
-		ranges.append(section)
-
-	while count < num:
-		index = 0
-		random_int = random.randint(0, section)
-		while random_int > ranges[index]:
-			index = index + 1
-		item = alist[index]
-		if item in rlist:
-			continue
-		rlist.append(item)
-		count = count + 1
-		#print random_int, item
-	return rlist
+	random.shuffle(newlist)
+	return newlist[0:num]
 
 #======================================================== Algorithm
 def sort_list(key_map, desc=False):
 	""" Sort a list """
-	items = key_map.items()
-	backitems = [[v[1], v[0]] for v in items]
+	backitems = list(key_map)
 	backitems.sort()
 	if desc:
-		return [backitems[i][1] for i in range(len(backitems)-1, -1, -1)]
+		return backitems[::-1]
 	else:
-		return [backitems[i][1] for i in range(0, len(backitems))]
+		return backitems
 
-def dict_sort_list(adict, key, desc=False):
+def dict_sort_list(dict_or_list, key, desc=False):
 	""" Return a list, that sort the dict by the key, not change the dict """
-	backitems = [[v[key], v] for v in adict]
+	if isinstance(dict_or_list, dict):
+		backitems = [[v[1][key], v[0]] for v in dict_or_list.items()]
+	elif isinstance(dict_or_list, list):
+		backitems = [[v[key], v] for v in dict_or_list]
+	else:
+		return []
 	backitems.sort()
 	if desc:
 		return [backitems[i][1] for i in range(len(backitems)-1, -1, -1)]
@@ -201,28 +177,21 @@ def dict_sort(adict, key, desc=False, num=None):
 		n_map[key] = adict[key]
 	return n_map
 
-def list2dict(rows, keys):
+def list2dict(keys, rows):
 	""" Change list to dict with specifi key. Index map index."""
-	result = []
-	length = len(keys)
-	for row in rows:
-		data = {}
-		for i in range(0, length):
-			data[keys[i]] = row[i]
-		result.append(data)
-	return result
+	return dict(zip(keys, rows))
 
 #====================================================== File
 def get_lines(file_name):
 	""" Read all lines to a list from file."""
-	fpoint = open(file_name, 'r+')
+	fpoint = open(file_name, 'r')
 	lines = fpoint.readlines()
 	fpoint.close()
 	for i in range(0, len(lines)):
 		lines[i] = lines[i].replace('\n', '')
 	return lines
 
-def get_file_md5(file_name):
+def file_md5(file_name):
 	""" Get file's md5."""
 	file_in = None
 	ret_md5 = ""
@@ -243,14 +212,15 @@ def get_file_md5(file_name):
 			file_in.close()
 	return ret_md5
 
-def del_duplicate(struct, key=None):
+def del_duplicate(data_list, key=None):
 	"""
 		Remove duplicate item from list or dict.
 		For list key=None, For dict, must appoint the key.
+		The duplicate item position after will be delete.
 	"""
 	result = []
 	tmp = {}
-	for item in struct:
+	for item in data_list:
 		data = item
 		if isinstance(item, dict):
 			data = item[key]
