@@ -66,33 +66,34 @@ def get_where(data):
 	"""
 		Convert dict where data to sql string.
 		data is string, return data directly.
-		data is list, use 'in()' sql syntax
-		data is dict, use 'field=value' sql syntax.
+		data is dict, value not list, use 'field=value' sql syntax.
+		data is dict, value is list, use 'in()' sql syntax, (only one key).
 	"""
-	wsql = " where "
-	if isinstance(data, str) or isinstance(data, unicode):
-		return data
-	if isinstance(data, list):
-		where = " where "
-		for key in data[0]:
-			where += key + " in ("
-			break
-		for item in data:
-			(key, value) = item.items()[0]
-			if type(value) in [int, long]:
-				where += "%s,"%value
-			else:
-				where += "'%s',"%value
-		return where[:-1] + ")"
+	if type(data) in [str, unicode]:
+		return " " + data
+
 	if isinstance(data, dict):
-		for key in data:
-			if str(data[key]).isdigit():
-				wsql = wsql + "%s=%s and "%(key, trans2str(data[key]))
+		wsql = " where "
+		items = data.items()
+		for (field, values) in items:
+			value_type = type(values)
+			if value_type in [int, long, float]:
+				wsql = wsql + "%s=%s and "%(field, str(values))
+			elif value_type in [str, unicode]:
+				wsql = wsql + "%s='%s' and "%(field, values)
+			elif value_type == list:
+				wsql = wsql + field + " in ("
+				for value in values:
+					if type(value) in [int, long]:
+						wsql += "%s,"%value
+					else:
+						wsql += "'%s',"%value
+				wsql = wsql[:-1] + ")"
 			else:
-				wsql = wsql + "%s='%s' and "%(key, trans2str(data[key]))
-		return wsql[0:-4]
-
-
+				wsql = wsql + "%s='%s' and "%(field, trans2str(values))
+		if wsql.endswith(" and "):
+			wsql = wsql[:-5]
+		return wsql
 
 class Sql(object):
 	"""
@@ -100,14 +101,14 @@ class Sql(object):
 		Mysql depend on MySQLdb, Sqlserver depend on pymssql.
 
 	"""
-	def __init__(self, server, db_name, dict=False, type= TYPE_MYSQL,\
+	def __init__(self, server, db_name, assoc=False, sql_type=TYPE_MYSQL,\
 			charset="utf8"):
 		"""
-			server: dict, info of server.
+			server: a dict with info of server.
 				{"host":"localhost","user":"test","pw":"123", "port":3306}
 			db_name: name of database.
-			dict: select return dict when it's true, else return list.
-			type: choose mysql or mssql, mysql default.
+			use_dict: select return dict when it's true, else return list.
+			sql_type: choose mysql or mssql, mysql default.
 			charset: default is utf8.
 		"""
 		self._server = server
@@ -116,8 +117,8 @@ class Sql(object):
 		self._pw = server["pw"]
 		self._port = 3306
 		self._db = db_name
-		self._dict = dict
-		self._type = type
+		self._assoc = assoc
+		self._type = sql_type
 		self._cursor = None
 		self._conn = None
 		self._charset = charset
@@ -125,16 +126,16 @@ class Sql(object):
 		if "port" in server:
 			self._port = server["port"]
 
-		if type == TYPE_MYSQL:
+		if sql_type == TYPE_MYSQL:
 			cursor_class = MySQLdb.cursors.Cursor
-			if self._dict:
+			if self._assoc:
 				cursor_class = MySQLdb.cursors.DictCursor
 			self._conn = MySQLdb.connect(self._host, self._user,\
 						self._pw, db_name, self._port, \
 						cursorclass=cursor_class)
 			self._cursor = self._conn.cursor()
 			self._cursor.execute("set names " + self._charset)
-		elif type == TYPE_MSSQL:
+		elif sql_type == TYPE_MSSQL:
 			self._conn = pymssql.connect(self._host, self._user, \
 					self._db, self._pw, charset=self._charset)
 			self._cursor = self._conn.cursor()
@@ -144,10 +145,16 @@ class Sql(object):
 		""" Check is cursor connecting, if not, reconnect."""
 		try:
 			self._cursor.connection.ping()
-		except:
+		except MySQLdb.OperationalError:
 			self._cursor.close()
-			self.__init__(self._server, self._db, self._dict, \
+			self.__init__(self._server, self._db, self._assoc, \
 					self._type, self._charset)
+
+	def execute(self, sql, value_list=None):
+		""" Execute normal SQL sentence."""
+		if value_list:
+			return self._cursor.execute(sql, value_list)
+		return self._cursor.execute(sql)
 
 	def _insert(self, table, data, ignore_key="id", output=False):
 		"""
@@ -177,20 +184,20 @@ class Sql(object):
 			output: if output true will print result sql.
 		"""
 		rsql = "insert into " + table + "("
-		value = ") value("
+		values = ") value("
 		rlist = []
 		data1 = datas[0]
 		for key in data1:
 			rsql = rsql + key + ','
-			value = value + "%s,"
+			values = values + "%s,"
 		for data in datas:
 			rdata = []
 			for (key, value) in data.items():
 				rdata.append(trans2str(value))
 			rlist.append(rdata)
 		rsql = rsql[0:-1]
-		value = value[0:-1]
-		rsql = rsql + value + ") on duplicate key update %s=%s"%(\
+		values = values[0:-1]
+		rsql = rsql + values + ") on duplicate key update %s=%s"%(\
 				ignore_key, ignore_key)
 		if output:
 			print rsql
@@ -236,9 +243,9 @@ class Sql(object):
 			rsql = rsql + key + ","
 		rsql = rsql[0:-1]
 		rsql = rsql + " from " + table + get_where(where_data)
-		self._cursor.execute(rsql)
 		if output:
 			print rsql
+		self._cursor.execute(rsql)
 		if one:
 			return self._cursor.fetchone()
 		else:
@@ -280,10 +287,7 @@ class Sql(object):
 			field = condition[0].keys()[0]
 		else:
 			field = key
-			values = condition
-			condition = []
-			for value in values:
-				condition.append({field:value})
+			condition = {field: condition}
 
 		rows = self._select(table, [field], condition)
 		ret = {}
