@@ -80,6 +80,10 @@ class PathBasic(object):
 			rstr = self._merge_url(rstr)
 		return rstr
 
+	def _deal_value_data(self, ret):
+		""" Deal the data that will be a last value."""
+		return ""
+
 	def _path2array(self, tree, config):
 		"""
 			Main process of pick.
@@ -95,9 +99,9 @@ class PathBasic(object):
 				if not ret:
 					result[key] = None
 					continue
-				if etree.iselement(ret[0]):
-					ret[0] = etree.tostring(ret[0], encoding="utf8")
-				ret = self._path_after(str(ret[0]), val)
+
+				ret = self._deal_value_data(ret)
+				ret = self._path_after(ret, val)
 				result[key] = ret
 			#pick result is list.
 			elif val["type"] == "list":
@@ -140,6 +144,11 @@ class XPath(PathBasic):
 	def _picker(self, tree, sentence):
 		return tree.xpath(sentence)
 
+	def _deal_value_data(self, ret):
+		if etree.iselement(ret[0]):
+			ret[0] = etree.tostring(ret[0], encoding="utf8")
+		return str(ret[0])
+
 	def _pick(self, config):
 		parser = etree.HTMLParser()
 		tree = etree.fromstring(self._html, parser)
@@ -167,6 +176,11 @@ class XJson(PathBasic):
 		if isinstance(tmp, unicode) or isinstance(tmp, str):
 			return [tmp]
 		return tmp
+
+	def _deal_value_data(self, ret):
+		if isinstance(ret, list):
+			return ret[0]
+		return ret
 
 	def _pick(self, config):
 		tree = json.loads(self._html)

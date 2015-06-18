@@ -71,10 +71,8 @@ def get(url, heads=None, timeout=12):
 	rep_header = {}
 	rhead = {}
 	code = 200
-	while True:
+	while fails < 3:
 		try:
-			if fails >= 3:
-				break
 			request = urllib2.Request(url)
 			request.add_header("version", "HTTP/1.1")
 			request.add_header("Accept-Encoding", "identity")
@@ -92,8 +90,8 @@ def get(url, heads=None, timeout=12):
 			else:
 				html = res_page.read()
 
-			if "Content-Encoding" in	rhead:
-				if 'gzip' in	rhead["Content-Encoding"]:
+			if "Content-Encoding" in rhead:
+				if 'gzip' in rhead["Content-Encoding"]:
 					html = de_gzip(html)
 			break
 		except EnvironmentError, msg:
@@ -108,14 +106,6 @@ def get(url, heads=None, timeout=12):
 	for key, val in	rhead.items():
 		rep_header[key] = val
 	return (rep_header, html)
-
-def get_gzip(url, heads=None):
-	""" Http get with gzip."""
-	heads["Accept-Encoding"] = "gzip"
-	(code, html) = get(url, heads)
-	if code == 200:
-		html = de_gzip(html)
-	return (code, html)
 
 #================================ 使用代理
 
@@ -204,9 +194,14 @@ def proxy_get(url, heads=None, datatype=True):
 		try:
 			response = opener.open(request, timeout=10)
 			code = response.getcode()
+			rhead = response.info()
+			dict_head = {}
+			for key, value in rhead.items():
+				dict_head[key] = value
+			rhead = dict_head
+			rhead["code"] = int(code)
+
 			if datatype:
-				rhead = response.info()
-				rhead["code"] = str(code)
 				html = response.read()
 				if "Content-Encoding" in rhead and 'gzip' in rhead["Content-Encoding"]:
 					html = de_gzip(html)
