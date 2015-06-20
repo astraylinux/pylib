@@ -17,7 +17,7 @@ sys.setdefaultencoding("utf-8")
 PINYIN_LIB = {}
 LANGCONV = {}
 #============================================================= simple function
-def get_redis_clinet(server):
+def get_redis_client(server):
 	""" Connect redis use config: {"host":"127.0.0.1", "port":6379, "db":1}"""
 	return redis.Redis(host=server["host"], port=server["port"], db=server["db"])
 
