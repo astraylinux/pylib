@@ -291,6 +291,8 @@ class Sql(object):
 
 		rows = self._select(table, [field], condition)
 		ret = {}
+		if not rows:
+			return ret
 		if isinstance(rows[0], dict):
 			for row in rows:
 				ret[row[field]] = 1
@@ -298,7 +300,6 @@ class Sql(object):
 			for row in rows:
 				ret[row[0]] = 1
 		return ret
-
 
 	def exist(self, table, condition, key=None):
 		""" Public api of exsit, use _exist or _exist_list."""
@@ -310,10 +311,17 @@ class Sql(object):
 
 
 #============================================ just test
-def data2redis(data, redis, queue, table, type, key, division=1):
+def data2redis(redis, queue, table, operate_type, data, key, division=1):
 	"""
 		Push the sql command data to redis.
 		Let another program use the data.
+		redis: target redis server's connect agent.
+		queue: target redis queue's name.
+		table: the target of sql operating's table.
+		operate_type: insert, update or delete.
+		data: the sql operating's target data.
+		key: the unique field. Data identity field.
+		division: sql table division number.
 	"""
 	result = {}
 	if division == 1:
@@ -327,8 +335,8 @@ def data2redis(data, redis, queue, table, type, key, division=1):
 		index = str(int(str(md5)[-16:].upper(), 16)%division)
 		result["table"] = table + index
 
-	result["type"] = type
+	result["type"] = operate_type
 	result["key"] = key
 	result["data"] = data
-	jstr = json.dumps(result, ensure_ascii=False)
+	jstr = json.dumps(result)
 	return redis.lpush(queue, jstr)

@@ -117,6 +117,8 @@ def init_proxy(proxy_file):
 		proxy_get and proxy_post will use the proxies in
 		G_PROXY_LIST randomly.
 	"""
+	if not os.path.exists(proxy_file):
+		return
 	f_proxy = open(proxy_file, "r+")
 	lines = f_proxy.readlines()
 	f_proxy.close()
