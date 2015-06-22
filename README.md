@@ -2,6 +2,14 @@
 #simple package of python 2.x
 
 `Dependces`: MySQLdb, python-redis, pymssql, python lxml  
+```bash
+sudo yum -y install python-redis MySQL-python python-lxml python-pip freetds-devel
+sudo easy_install-2.7 setuptools-git
+
+sudo easy_install-2.7 pymssql #or
+sudo pip install pymssql
+```
+
 Clone this project, and add the upper directory to .bashrc
 ```bash
 PYTHONPATH=$PYTHONPATH:local_dir
