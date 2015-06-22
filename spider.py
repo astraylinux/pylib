@@ -1,8 +1,6 @@
 #!/usr/bin/python
 #coding=utf-8
 import re
-#import BeautifulSoup
-#import chardet
 
 CHAR_ENTITIES = {'nbsp':' ', '160':' ', 'lt':'<', '60':'<', 'gt':'>',\
 			'62':'>', 'amp':'&', '38':'&', 'quot':'"', '34':'"'}
