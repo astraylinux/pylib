@@ -2,6 +2,7 @@
 #coding=utf8
 import re
 import json
+import util
 from lxml import etree
 
 class PathBasic(object):
@@ -70,6 +71,11 @@ class PathBasic(object):
 		sentence = val["key"]
 		return sentence
 
+	def _appoint_path(self, value):
+		if value == "now()":
+			return util.get_now_datetime()
+		return False
+
 	def _path_after(self, rstr, val):
 		""" Do someting after xpath, it's _ex_func and _merge_url now."""
 		if "remake" in val:
@@ -95,6 +101,11 @@ class PathBasic(object):
 			#pick result is string.
 			if not "type" in val:
 				sentence = self._path_pre(val)
+				#some appoint function inline.
+				appoint_ret = self._appoint_path(sentence)
+				if appoint_ret:
+					result[key] = appoint_ret
+					continue
 				ret = self._picker(tree, sentence)
 				if not ret:
 					result[key] = None

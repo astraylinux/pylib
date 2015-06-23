@@ -29,7 +29,7 @@ def log_config(logfile, level=logging.INFO, fmt=None):
 
 def get_now_datetime():
 	""" Quick to get normal date time """
-	return time.strftime('%Y-%m-%d-%H:%M:%S', time.localtime(time.time()))
+	return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
 
 def get_date(offset=-1):
 	"""
