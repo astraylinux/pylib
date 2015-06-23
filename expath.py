@@ -12,7 +12,10 @@ class PathBasic(object):
 	"""
 	def __init__(self, url, html, code="gbk"):
 		self._url = url
-		self._html = unicode(html.decode(code, "ignore"))
+		if code.lower() == "utf-8" or code.lower() == "utf8":
+			self._html = html
+		else:
+			self._html = unicode(html.decode(code, "ignore"))
 		row = url.split("/")
 		self._domain = row[2]
 		self._url_domain = row[0] + "//" + row[2]
