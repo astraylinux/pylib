@@ -145,7 +145,7 @@ class Sql(object):
 		""" Check is cursor connecting, if not, reconnect."""
 		try:
 			self._conn.ping()
-		except (MySQLdb.OperationalError, AttributeError):
+		except Exception:
 			self._cursor.close()
 			self.__init__(self._server, self._db, self._assoc, \
 					self._type, self._charset)
