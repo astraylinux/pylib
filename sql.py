@@ -146,7 +146,6 @@ class Sql(object):
 		try:
 			self._conn.ping()
 		except Exception:
-			self._cursor.close()
 			self.__init__(self._server, self._db, self._assoc, \
 					self._type, self._charset)
 
