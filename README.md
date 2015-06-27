@@ -13,7 +13,7 @@ sudo pip install pymssql
 
 ##debain
 ```bash
-sudo apt-get python-redis python-mysqldb python-pymssql python-lxml
+sudo apt-get install python-redis python-mysqldb python-pymssql python-lxml
 ```
 
 Clone this project, and add the upper directory to .bashrc
