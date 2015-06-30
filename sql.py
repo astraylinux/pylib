@@ -149,6 +149,10 @@ class Sql(object):
 			self.__init__(self._server, self._db, self._assoc, \
 					self._type, self._charset)
 
+	def commit(self):
+		""" if database is Innodb, should execute commit after write."""
+		self._conn.commit()
+
 	def execute(self, sql, value_list=None):
 		""" Execute normal SQL sentence."""
 		if value_list:
