@@ -9,6 +9,7 @@ import socket
 import hashlib
 import datetime
 import random
+import json
 import re
 from decimal import Decimal
 reload(sys)
@@ -61,6 +62,9 @@ def get_ip():
 
 def md5(string):
 	return hashlib.md5(string).hexdigest()
+
+def json_dump(array):
+	return json.dumps(array, indent=4, ensure_ascii=False)
 
 #============================================================= language
 def trans2py(cn_str, entire=True):
