@@ -10,12 +10,16 @@ class Thread(threading.Thread):
 		function, will use the function deal each data in each thread.
 		Use the run() function to quick start.
 	"""
-	def __init__(self, num, func, queue):
+	def __init__(self, num, func, queue, arg=None):
 		threading.Thread.__init__(self)
 		self._num = num
 		self._func = func
 		self._queue = queue
 		self._alive = False
+		self._arg = arg
+
+	def alive(self):
+		return self._alive
 
 	def run(self):
 		self._alive = True
@@ -27,7 +31,7 @@ class Thread(threading.Thread):
 			self._func(item, self._num, self._queue.qsize())
 		self._alive = False
 
-def run(datas, func, num, space=1, block=True, check_space=1):
+def run(datas, func, num, space=1, block=True, check_space=1, args=[]):
 	"""
 		Start 'num' thread to use func deal the datas.
 		datas must be a list with unit data that need deal.
@@ -38,7 +42,10 @@ def run(datas, func, num, space=1, block=True, check_space=1):
 	for data in datas:
 		queue.put(data)
 	for index in range(0, num):
-		thread = Thread(index, func, queue)
+		arg = None
+		if len(args) > index:
+			arg = args[index]
+		thread = Thread(index, func, queue, arg)
 		thread.start()
 		threads.append(thread)
 		time.sleep(space)
@@ -48,7 +55,7 @@ def run(datas, func, num, space=1, block=True, check_space=1):
 			time.sleep(check_space)
 			stop_count = 0
 			for thread in threads:
-				if not thread._alive:
+				if not thread.alive():
 					stop_count += 1
 			if stop_count == thread_count:
 				break
