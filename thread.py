@@ -28,7 +28,7 @@ class Thread(threading.Thread):
 				item = self._queue.get_nowait()
 			except:
 				break
-			self._func(item, self._num, self._queue.qsize())
+			self._func(item, self._arg, self._num, self._queue.qsize())
 		self._alive = False
 
 def run(datas, func, num, space=1, block=True, check_space=1, args=[]):
