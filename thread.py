@@ -23,13 +23,21 @@ class Thread(threading.Thread):
 
 	def run(self):
 		self._alive = True
-		while True:
+		while self._queue.qsize():
 			try:
 				item = self._queue.get_nowait()
 			except:
 				break
 			self._func(item, self._arg, self._num, self._queue.qsize())
 		self._alive = False
+
+def alive(threads):
+	""" Check how much threads still alive."""
+	count = 0
+	for thread in threads:
+		if thread.alive():
+			count += 1
+	return count
 
 def run(datas, func, num, space=1, block=True, check_space=1, args=[]):
 	"""
@@ -59,3 +67,5 @@ def run(datas, func, num, space=1, block=True, check_space=1, args=[]):
 					stop_count += 1
 			if stop_count == thread_count:
 				break
+	else:
+		return threads
