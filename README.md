@@ -1,4 +1,4 @@
-#simple package of python 2.x
+#simple package for python 2.x
 
 `Dependces`: MySQLdb, python-redis, pymssql, python lxml  
 
