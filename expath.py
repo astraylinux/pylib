@@ -27,6 +27,8 @@ class PathBasic(object):
 			return
 		if "http://" in url_sub:
 			return url_sub
+		elif url_sub[:2] == "//":
+			return "http:" + url_sub
 		elif url_sub[0] == "/":
 			return str(self._url_domain + url_sub)
 		else:
