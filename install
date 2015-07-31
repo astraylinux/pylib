@@ -1,6 +1,9 @@
 #!/bin/bash
 
-path=`pypath`
+target=$(pypath)
+cur=$(pwd)
 
-cd ../
-cp -r pylib $path
+ln -s $cur/pylib $target
+
+echo "ln -s $cur/pylib $target"
+
