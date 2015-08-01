@@ -3,7 +3,7 @@
 target=$(pypath)
 cur=$(pwd)
 
-ln -s $cur/pylib $target
+ln -fs $cur $target
 
-echo "ln -s $cur/pylib $target"
+echo "ln -s $cur pylib $target"
 
