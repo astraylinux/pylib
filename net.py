@@ -252,6 +252,12 @@ def download_file(url, local, head=None, timeout=10):
 			request.close()
 			if length > 0:
 				if os.path.getsize(local) == length:
+					if "Content-Encoding" in headinfo and \
+						"gzip" in headinfo["Content-Encoding"]:
+						filep = open(local, "r+")
+						content = filep.read()
+						content = de_gzip(content)
+						filep.write(content)
 					return True
 			os.remove(local)
 			return False
