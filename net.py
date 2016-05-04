@@ -34,7 +34,8 @@ def post(url, data, heads=None, datatype=True):
 	try:
 		rep_header = {}
 		request = urllib2.Request(url)
-		data = urllib.urlencode(data)
+		if isinstance(data, dict):
+			data = urllib.urlencode(data)
 		if heads:
 			for key in heads:
 				request.add_header(key, heads[key])
