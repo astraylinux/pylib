@@ -28,9 +28,13 @@ def log_config(logfile, level=logging.INFO, fmt=None):
 		fmt = "[%(asctime)s][%(filename)s][%(lineno)d][%(levelname)s]::%(message)s"
 	logging.basicConfig(filename=logfile, level=level, format=fmt)
 
-def get_now_datetime():
+def get_now_datetime(offset=0, fom='%Y-%m-%d %H:%M:%S'):
 	""" Quick to get normal date time """
-	return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+	return time.strftime(fom, time.localtime(time.time() + offset))
+
+def get_datetime(offset=0, fom='%Y-%m-%d %H:%M:%S'):
+	""" Quick to get normal date time """
+	return time.strftime(fom, time.localtime(time.time() + offset))
 
 def get_date(offset=-1):
 	"""

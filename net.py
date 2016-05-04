@@ -257,7 +257,10 @@ def download_file(url, local, head=None, timeout=10):
 						filep = open(local, "r+")
 						content = filep.read()
 						content = de_gzip(content)
+						filep.close()
+						filep = open(local, "w")
 						filep.write(content)
+						filep.close()
 					return True
 			os.remove(local)
 			return False
