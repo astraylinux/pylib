@@ -64,6 +64,10 @@ class PathBasic(object):
 			result = rstr
 			if ret:
 				result = ret
+		elif method == "re.sub":
+			ret = re.search(argv[0], rstr)
+			if ret:
+				result = ret.group(argv[1])
 		else:
 			result = rstr
 		return result

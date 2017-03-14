@@ -8,7 +8,7 @@ import datetime
 import hashlib
 import MySQLdb
 import MySQLdb.cursors
-import pymssql
+#import pymssql
 
 TYPE_MYSQL = 0
 TYPE_MSSQL = 1
