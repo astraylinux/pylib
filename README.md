@@ -1,6 +1,6 @@
 # simple package for python 2.x
 
-`Dependces`: MySQLdb, python-redis, pymssql, python lxml  
+`Dependces`: MySQLdb, python-redis, pymssql, python lxml
 
 ## centos
 ```bash
@@ -31,9 +31,18 @@ md5_str = pylib.util.md5(test_string)
 More examples are in test directory.
 
 ## 模块(Modules)
+<<<<<<< HEAD
 `util.py`: some simport function that used often, like get string md5, get the datetime now, so on.  
 `sql.py`: depend on the MySQLdb,  package the cursor as a class.  
 `thread.py`: quickly start threads with a datas queue.  
 `net.py`: simple package of urllib and urllib2 to get(), post(), download_file(), proxy_get()...  
 `spider.py`: some commom function the used by website spider.  
 `expath.py`: depend on lxml.etree, use the xpath to pick content from html.  
+=======
+`util.py`: some simport function that used often, like get string md5, get the datetime now, so on.
+`sql.py`: depend on the MySQLdb,  package the cursor as a class.
+`thread.py`: quickly start threads with a datas queue.
+`net.py`: simple package of urllib and urllib2 to get(), post(), download_file(), proxy_get()...
+`spider.py`: some commom function the used by website spider.
+`expath.py`: depend on lxml.etree, use the xpath to pick content from html.
+>>>>>>> e6bc88289e7df8fdd24a5e1e146b9fe8b9ed98bb
