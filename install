@@ -1,5 +1,15 @@
 #!/bin/bash
 
+yum -y install MySQL-python
+pip install redis lxml
+
+cd data
+unzip MySQL-python-1.2.5.zip
+cd MySQL-python-1.2.5
+python ./setup.py install
+cd ..
+cd ..
+
 target=$(pypath)
 cur=$(pwd)
 
