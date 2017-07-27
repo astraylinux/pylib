@@ -1,14 +1,8 @@
 #!/bin/bash
 
+#apt-get install MySQL-python
 yum -y install MySQL-python
 pip install redis lxml
-
-#cd data
-#unzip MySQL-python-1.2.5.zip
-#cd MySQL-python-1.2.5
-#python ./setup.py install
-#cd ..
-#cd ..
 
 target=$(pypath)
 cur=$(pwd)
@@ -17,3 +11,11 @@ ln -fs $cur $target
 
 echo "ln -s $cur pylib $target"
 
+# if python lib not the system lib(install from yum not avalible)
+#yum -y install mysql-devel
+#cd data
+#unzip MySQL-python-1.2.5.zip
+#cd MySQL-python-1.2.5
+#python ./setup.py install
+#cd ..
+#cd ..
