@@ -2,6 +2,7 @@
 #coding=utf-8
 import urllib
 import urllib2
+import requests
 import gzip
 import time
 import random
@@ -62,6 +63,27 @@ def _get_error_code(e_str):
     if "page not find" in e_str:
         return 404
     return -1
+
+def get(url, header=None, cookie=None, redirect=False, timeout=20):
+    """ Http Get.
+        Content-Length limit 10048576(10MB).
+    """
+    try:
+        respo = requests.get(url, headers=header, cookies=cookie, \
+                allow_redirects=redirect, timeout=timeout)
+        rheaders = respo.headers
+        rheaders["charset"] = respo.encoding
+        rheaders["code"] = respo.status_code
+        if cookie:
+            cookie.update(respo.cookies)
+        else:
+            cookie = respo.cookies
+        rheaders["cookie"] = cookie
+        return (dict(rheaders), respo.content)
+    except Exception, msg:
+        error_str = traceback.format_exc(str(msg))
+        return ({"code": 998}, error_str, None)
+
 
 def get(url, heads=None, timeout=12):
     """ Http Get.
