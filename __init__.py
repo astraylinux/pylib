@@ -1,6 +1,6 @@
 #coding=utf8
 """
-	自己整理的py库
+    自己整理的py库
 """
 
 import net
