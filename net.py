@@ -10,11 +10,6 @@ import StringIO
 import os
 import traceback
 
-CODES = ["301", "302", "303", "304", "307", "400", "404", "401", "403", \
-        "405", "406", "408", "500", "501", "502", "503", "504", "505"]
-NO_RETRY = [301, 302, 303, 304, 307, 400, 401, 403, 404, 405, 406, 500, \
-        501, 502, 503, 504, 505]
-
 #some common net operation
 
 def de_gzip(data):
@@ -24,112 +19,73 @@ def de_gzip(data):
     gzipper = gzip.GzipFile(fileobj=cmps)
     return gzipper.read()
 
-def post(url, data, heads=None, datatype=True):
-    """http post
-        data: dictionary struct, key value of the post data
-        heads: dictionaray struct, http head
-        datatype: define the return data
-            True: will return string
-            False: return the http object response
-    """
-    try:
-        rep_header = {}
-        request = urllib2.Request(url)
-        if isinstance(data, dict):
-            data = urllib.urlencode(data)
-        if heads:
-            for key in heads:
-                request.add_header(key, heads[key])
-        response = urllib2.urlopen(request, data, timeout=10)
-        code = response.getcode()
-        rhead = response.info()
-        rep_header["code"] = int(code)
-        for key, val in    rhead.items():
-            rep_header[key] = val
-        if datatype:
-            return (rep_header, response.read())
-        return (rep_header, response)
-    except EnvironmentError, msg:
-        #print str(msg)
-        if "404" in str(msg):
-            return ({"code":404}, "")
-        else:
-            return ({"code":-1}, "")
-
-def _get_error_code(e_str):
-    for code in CODES:
-        if code in e_str:
-            return int(code)
-    if "page not find" in e_str:
-        return 404
-    return -1
 
 def get(url, header=None, cookie=None, redirect=False, timeout=20):
     """ Http Get.
-        Content-Length limit 10048576(10MB).
     """
     try:
-        respo = requests.get(url, headers=header, cookies=cookie, \
-                allow_redirects=redirect, timeout=timeout)
+        respo = requests.get(url, headers=header, cookies=cookie, allow_redirects=redirect,
+                             timeout=timeout)
         rheaders = respo.headers
         rheaders["charset"] = respo.encoding
         rheaders["code"] = respo.status_code
         if cookie:
-            cookie.update(respo.cookies)
+            return dict(rheaders), respo.content, respo.cookies
         else:
-            cookie = respo.cookies
-        rheaders["cookie"] = cookie
-        return (dict(rheaders), respo.content)
+            return dict(rheaders), respo.content
     except Exception, msg:
-        error_str = traceback.format_exc(str(msg))
-        return ({"code": 998}, error_str, None)
+        error_msg = traceback.format_exc(str(msg))
+        if cookie:
+            return {"code": -1}, error_msg, None
+        else:
+            return {"code": -1}, error_msg
 
 
-def get(url, heads=None, timeout=12):
-    """ Http Get.
-        Content-Length limit 10048576(10MB).
+def post(url, data, header=None, cookie=None, redirect=False, timeout=20, files=None):
+    """http post
     """
-    fails = 0
-    html = ""
-    rep_header = {}
-    rhead = {}
-    code = 200
-    while fails < 3:
-        try:
-            request = urllib2.Request(url)
-            request.add_header("version", "HTTP/1.1")
-            request.add_header("Accept-Encoding", "identity")
-            if heads:
-                for key in heads:
-                    request.add_header(key, heads[key])
+    try:
+        respo = requests.post(url, data=data, headers=header, cookies=cookie,
+                              files=files, timeout=timeout, allow_redirects=redirect)
+        rheaders = respo.headers
+        rheaders["charset"] = respo.encoding
+        rheaders["code"] = respo.status_code
+        if cookie:
+            return dict(rheaders), respo.content, respo.cookies
+        else:
+            return dict(rheaders), respo.content
+    except Exception, msg:
+        error_msg = traceback.format_exc(str(msg))
+        if cookie:
+            return {"code": -1}, error_msg, None
+        else:
+            return {"code": -1}, error_msg
 
-            urllib2.HTTPError
-            res_page = urllib2.urlopen(request, timeout=timeout)
-            code = res_page.getcode()
-            rhead = res_page.info()
-            if ("Content-Length" in    rhead) and \
-                    int(rhead['Content-Length']) > 10048576:
-                code = 99
-                html = ""
-            else:
-                html = res_page.read()
 
-            if "Content-Encoding" in rhead:
-                if 'gzip' in rhead["Content-Encoding"]:
-                    html = de_gzip(html)
-            break
-        except EnvironmentError, msg:
-            code = _get_error_code(str(msg))
-            if code in NO_RETRY:
-                rep_header["code"] = code
-                return (rep_header, "")
-            fails = fails + 1
-            time.sleep(0.5)
+def download(url, local, header=None, cookie=None, redirect=False, timeout=60):
+    """Download file"""
+    try:
+        respo = requests.get(url, headers=header, cookies=cookie,
+                             allow_redirects=redirect, timeout=timeout)
+        rheaders = respo.headers
+        rheaders["charset"] = respo.encoding
+        rheaders["code"] = respo.status_code
+        with open(local, "wb") as code:
+            code.write(respo.content)
+            code.close()
+        if cookie:
+            return dict(rheaders), True, respo.cookies
+        else:
+            return dict(rheaders), True
+    except Exception, msg:
+        error_msg = traceback.format_exc(str(msg))
+        if cookie:
+            return {"code": -1, "error": error_msg}, False, None
+        else:
+            return {"code": -1, "error": error_msg}, False
 
-    rep_header["code"] = code
-    for key, val in    rhead.items():
-        rep_header[key] = val
-    return (rep_header, html)
+def download_file(url, local, header=None, cookie=None, redirect=False, timeout=60):
+    return download(url, local, header, cookie, redirect, timeout)
 
 #================================ 使用代理
 
@@ -252,43 +208,3 @@ def proxy_get(url, heads=None, datatype=True):
     for key, val in rhead.items():
         rep_header[key] = val
     return (rep_header, "")
-
-def download_file(url, local, head=None, timeout=10):
-    """Download file to local."""
-    retry = True
-    while retry:
-        try:
-            request = urllib2.Request(url)
-            if head:
-                for key, value in head.items():
-                    request.add_header(key, value)
-            request = urllib2.urlopen(request, timeout=timeout)
-            length = 0
-            headinfo = request.info()
-            if "Content-Length" in headinfo:
-                length = int(headinfo["Content-Length"])
-            tmpdata = request.read(64*1024)
-            file_handle = open(local, "wb")
-            while tmpdata:
-                file_handle.write(tmpdata)
-                tmpdata = request.read(64*1024)
-            file_handle.close()
-            request.close()
-            if length > 0:
-                if os.path.getsize(local) == length:
-                    if "Content-Encoding" in headinfo and \
-                        "gzip" in headinfo["Content-Encoding"]:
-                        filep = open(local, "r+")
-                        content = filep.read()
-                        content = de_gzip(content)
-                        filep.close()
-                        filep = open(local, "w")
-                        filep.write(content)
-                        filep.close()
-                    return True
-            os.remove(local)
-            return False
-        except EnvironmentError, msg:
-            print msg
-            retry = False
-        return False
