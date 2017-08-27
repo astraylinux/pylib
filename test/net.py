@@ -38,26 +38,27 @@ def post():
     (headers, html) = net.post("http://fanyi.baidu.com/langdetect", post_data)
     if not headers["code"] == 200:
         print "download failed\n", headers
-    if not html == '{"error":0,"msg":"success","lan":"zh"}':
+    if not "success" in html:
         print html
 
 def proxy_get():
     print "Test proxy_get()"
-    net.init_proxy("./proxy_list")
+    net.proxy_init("./proxy_list")
     (headers, html) = net.proxy_get("http://www.atool.org/regex.php")
     if not headers["code"] == 200:
         print "download failed\n", headers
+        print html
     if not len(html) > 5000:
         print "Length error:", len(html)
 
 def proxy_post():
     print "Test proxy_post()"
-    net.init_proxy("./proxy_list")
+    net.proxy_init("./proxy_list")
     post_data = {"query":"qq"}
     (headers, html) = net.proxy_post("http://fanyi.baidu.com/langdetect", post_data)
     if not headers["code"] == 200:
         print "download failed\n", headers
-    if not html == '{"error":0,"msg":"success","lan":"zh"}':
+    if not "success" in html:
         print html
 
 if __name__ == "__main__":
