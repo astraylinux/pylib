@@ -2,7 +2,7 @@
 
 #apt-get install MySQL-python
 yum -y install MySQL-python
-pip install redis lxml
+pip install redis lxml requests
 
 target=$(pypath)
 cur=$(pwd)
