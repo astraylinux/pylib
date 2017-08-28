@@ -1,16 +1,11 @@
 #!/usr/bin/python
 #coding=utf-8
-import urllib
-import urllib2
-import requests
+import os
 import gzip
-import time
 import random
 import StringIO
-import os
 import traceback
-
-import util
+import requests
 
 #some common net operation
 
