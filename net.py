@@ -31,7 +31,7 @@ def get(url, header=None, cookie=None, redirect=False, timeout=20, data_only=Tru
             ret_data = rep
         return (dict(rheaders), ret_data, rep.cookies) if cookie else (dict(rheaders), ret_data)
     except Exception, msg:
-        error_msg = traceback.format_exc(str(msg))
+        error_msg = str(traceback.format_exc(str(msg)))
         return ({"code": -1}, error_msg, None) if cookie else ({"code": -1}, error_msg)
 
 
@@ -49,7 +49,7 @@ def post(url, data, header=None, cookie=None, redirect=False, timeout=20, files=
             ret_data = rep
         return (dict(rheaders), ret_data, rep.cookies) if cookie else (dict(rheaders), ret_data)
     except Exception, msg:
-        error_msg = traceback.format_exc(str(msg))
+        error_msg = str(traceback.format_exc(str(msg)))
         return ({"code": -1}, error_msg, None) if cookie else ({"code": -1}, error_msg)
 
 
@@ -66,7 +66,7 @@ def download(url, local, header=None, cookie=None, redirect=False, timeout=60):
             code.close()
         return (dict(rheaders), True, rep.cookies) if cookie else (dict(rheaders), True)
     except Exception, msg:
-        error_msg = {"code": -1, "error": traceback.format_exc(str(msg))}
+        error_msg = {"code": -1, "error": str(traceback.format_exc(str(msg)))}
         return (error_msg, False, None) if cookie else (error_msg, False)
 
 def download_file(url, local, header=None, cookie=None, redirect=False, timeout=60):
@@ -167,5 +167,5 @@ def proxy_post(url, data, header=None, cookie=None, redirect=False, timeout=20, 
             ret_data = rep
         return (dict(rheaders), ret_data, rep.cookies) if cookie else (dict(rheaders), ret_data)
     except Exception, msg:
-        error_msg = traceback.format_exc(str(msg))
+        error_msg = str(traceback.format_exc(str(msg)))
         return ({"code": -1}, error_msg, None) if cookie else ({"code": -1}, error_msg)
