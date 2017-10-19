@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #apt-get install MySQL-python
-yum -y install MySQL-python
-pip install redis lxml requests
+#yum -y install MySQL-python
+pip install redis lxml requests MySQL-python
 
 target=$(pypath)
 cur=$(pwd)
